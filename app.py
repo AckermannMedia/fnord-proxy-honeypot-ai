@@ -603,6 +603,111 @@ def component_status():
     return jsonify(status)
 
 
+@app.route("/api/install-status")
+def install_status():
+    """Check installed dependencies and config file status."""
+    import shutil
+
+    def check_bin(name):
+        return shutil.which(name) is not None
+
+    def check_file(path):
+        return os.path.exists(path)
+
+    def get_version(cmd):
+        try:
+            out = subprocess.check_output(cmd, text=True, timeout=5, stderr=subprocess.STDOUT)
+            return out.strip().split("\n")[0]
+        except Exception:
+            return None
+
+    cfg = load_config()
+    domain = cfg.get("DOMAIN", "example.com")
+    is_docker = os.path.exists("/.dockerenv")
+
+    deps = {
+        "python3": {
+            "installed": check_bin("python3"),
+            "version": get_version(["python3", "--version"]),
+            "install_cmd": "apt install -y python3 python3-pip",
+        },
+        "flask": {
+            "installed": False,
+            "version": None,
+            "install_cmd": "pip3 install flask",
+        },
+        "nginx": {
+            "installed": check_bin("nginx"),
+            "version": get_version(["nginx", "-v"]),
+            "install_cmd": "apt install -y nginx",
+        },
+        "fail2ban": {
+            "installed": check_bin("fail2ban-client"),
+            "version": get_version(["fail2ban-client", "--version"]),
+            "install_cmd": "apt install -y fail2ban",
+        },
+    }
+
+    # Check Flask import
+    try:
+        import flask
+        deps["flask"]["installed"] = True
+        deps["flask"]["version"] = f"Flask {flask.__version__}"
+    except ImportError:
+        pass
+
+    configs = {
+        "honeypot_log_format": {
+            "label": "Honeypot Log Format",
+            "path": "/etc/nginx/conf.d/honeypot-log-format.conf",
+            "installed": check_file("/etc/nginx/conf.d/honeypot-log-format.conf") or check_file("/etc/nginx/conf.d/00-honeypot-log-format.conf"),
+            "install_cmd": "sudo cp nginx/honeypot-log-format.conf /etc/nginx/conf.d/honeypot-log-format.conf",
+        },
+        "honeypot_locations": {
+            "label": "Honeypot Locations Snippet",
+            "path": "/etc/nginx/snippets/honeypot-locations.conf",
+            "installed": check_file("/etc/nginx/snippets/honeypot-locations.conf"),
+            "install_cmd": "sudo cp nginx/honeypot-locations.conf /etc/nginx/snippets/honeypot-locations.conf",
+        },
+        "nginx_site": {
+            "label": f"Nginx Site Config",
+            "path": f"/etc/nginx/sites-available/fnord-{domain}",
+            "installed": check_file(f"/etc/nginx/sites-available/fnord-{domain}") or check_file(f"/etc/nginx/sites-enabled/fnord-{domain}"),
+            "install_cmd": f"sudo cp nginx/fnord-proxy.conf.template /etc/nginx/sites-available/fnord-{domain}\nsudo sed -i 's|${{DOMAIN}}|{domain}|g' /etc/nginx/sites-available/fnord-{domain}\nsudo ln -sf /etc/nginx/sites-available/fnord-{domain} /etc/nginx/sites-enabled/\nsudo nginx -t && sudo systemctl reload nginx",
+        },
+        "f2b_filter": {
+            "label": "Fail2ban Filter",
+            "path": "/etc/fail2ban/filter.d/fnord-honeypot.conf",
+            "installed": check_file("/etc/fail2ban/filter.d/fnord-honeypot.conf"),
+            "install_cmd": "sudo cp fail2ban/fnord-honeypot.conf /etc/fail2ban/filter.d/fnord-honeypot.conf",
+        },
+        "f2b_jail": {
+            "label": "Fail2ban Jail",
+            "path": "/etc/fail2ban/jail.d/fnord-honeypot.conf",
+            "installed": check_file("/etc/fail2ban/jail.d/fnord-honeypot.conf"),
+            "install_cmd": "sudo cp fail2ban/jail-fnord.conf /etc/fail2ban/jail.d/fnord-honeypot.conf\nsudo systemctl reload fail2ban",
+        },
+        "systemd_service": {
+            "label": "Systemd Service",
+            "path": "/etc/systemd/system/fnord-proxy.service",
+            "installed": check_file("/etc/systemd/system/fnord-proxy.service"),
+            "install_cmd": "sudo cp fnord-proxy.service /etc/systemd/system/fnord-proxy.service\nsudo systemctl daemon-reload\nsudo systemctl enable fnord-proxy\nsudo systemctl start fnord-proxy",
+        },
+        "honeypot_log": {
+            "label": "Honeypot Log File",
+            "path": "/var/log/nginx/honeypot.log",
+            "installed": check_file("/var/log/nginx/honeypot.log"),
+            "install_cmd": "sudo touch /var/log/nginx/honeypot.log\nsudo chown www-data:adm /var/log/nginx/honeypot.log",
+        },
+    }
+
+    return jsonify({
+        "is_docker": is_docker,
+        "dependencies": deps,
+        "configs": configs,
+    })
+
+
 @app.route("/setup")
 def setup_page():
     cfg = load_config()
@@ -771,6 +876,40 @@ SETUP_HTML = r"""<!DOCTYPE html>
   .toast.show { transform:translateY(0); }
   .toast.error { border-color:var(--bright); color:var(--bright); }
 
+  /* Install checks */
+  .check-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .check-item {
+    display:flex; align-items:center; gap:10px; padding:10px;
+    background:var(--dark); border:1px solid var(--border); border-radius:2px;
+  }
+  .check-icon { font-size:16px; min-width:22px; text-align:center; }
+  .check-info { flex:1; }
+  .check-name { font-size:12px; font-weight:600; }
+  .check-detail { font-size:9px; color:var(--dim); margin-top:1px; }
+  .check-cmd {
+    background:var(--bg); border:1px solid var(--border); border-radius:2px;
+    padding:8px 10px; font-size:10px; color:var(--amber); margin-top:8px;
+    white-space:pre-wrap; word-break:break-all; cursor:pointer;
+    line-height:1.6; display:none;
+  }
+  .check-cmd:hover { border-color:var(--red); }
+  .check-cmd.visible { display:block; }
+  .check-cmd::before {
+    content:'$ '; color:var(--dim);
+  }
+  .deploy-grid { display:grid; grid-template-columns:1fr; gap:6px; }
+  .deploy-item {
+    display:flex; align-items:center; gap:10px; padding:10px;
+    background:var(--dark); border:1px solid var(--border); border-radius:2px;
+  }
+  .deploy-item .check-cmd { margin-top:0; margin-left:auto; display:block; padding:4px 8px; white-space:nowrap; }
+  .show-cmd-btn {
+    font-size:9px; color:var(--dim); background:none; border:1px solid var(--border);
+    padding:3px 8px; border-radius:2px; cursor:pointer; font-family:'Share Tech Mono',monospace;
+    letter-spacing:1px;
+  }
+  .show-cmd-btn:hover { color:var(--bright); border-color:var(--red); }
+
   /* Config export */
   .config-output {
     background:var(--bg); border:1px solid var(--border); border-radius:2px;
@@ -872,9 +1011,24 @@ SETUP_HTML = r"""<!DOCTYPE html>
   <div class="hp-grid" id="hp-grid"></div>
 </div>
 
-<!-- ACTIONS -->
+<!-- INSTALL -->
 <div class="section">
   <span class="num">04</span>
+  <span class="title">Installation // Abhaengigkeiten</span>
+</div>
+<div class="card">
+  <h2>Software</h2>
+  <div class="check-grid" id="dep-grid"></div>
+</div>
+<div class="card">
+  <h2>Konfigurationsdateien</h2>
+  <div class="deploy-grid" id="cfg-grid"></div>
+  <div class="check-cmd visible" id="install-all-cmd" style="display:none; margin-top:10px; cursor:pointer" onclick="copyCmd(this)"></div>
+</div>
+
+<!-- ACTIONS -->
+<div class="section">
+  <span class="num">05</span>
   <span class="title">Aktionen</span>
 </div>
 <div class="card">
@@ -1140,8 +1294,81 @@ async function loadStatus() {
   } catch(e) { console.error(e); }
 }
 
+function copyCmd(el) {
+  const text = el.textContent.trim();
+  navigator.clipboard.writeText(text).then(() => toast('In Zwischenablage kopiert'));
+}
+
+async function loadInstallStatus() {
+  try {
+    const d = await (await fetch('/api/install-status')).json();
+    const deps = d.dependencies || {};
+    const cfgs = d.configs || {};
+
+    // Dependencies
+    const depEl = document.getElementById('dep-grid');
+    depEl.innerHTML = Object.entries(deps).map(([id, dep]) => `
+      <div class="check-item">
+        <span class="check-icon">${dep.installed ? '\u2705' : '\u274C'}</span>
+        <div class="check-info">
+          <div class="check-name">${id}</div>
+          <div class="check-detail">${dep.installed ? (dep.version || 'installiert') : 'nicht installiert'}</div>
+        </div>
+        ${!dep.installed ? '<button class="show-cmd-btn" onclick="toggleCmd(this)">CMD</button>' : ''}
+      </div>
+      ${!dep.installed ? '<div class="check-cmd" onclick="copyCmd(this)">' + dep.install_cmd + '</div>' : ''}
+    `).join('');
+
+    // Config files
+    const cfgEl = document.getElementById('cfg-grid');
+    let missingCmds = [];
+    cfgEl.innerHTML = Object.entries(cfgs).map(([id, cfg]) => {
+      if (!cfg.installed) missingCmds.push('# ' + cfg.label + '\n' + cfg.install_cmd);
+      return `
+        <div class="deploy-item">
+          <span class="check-icon">${cfg.installed ? '\u2705' : '\u26A0\uFE0F'}</span>
+          <div class="check-info">
+            <div class="check-name">${cfg.label}</div>
+            <div class="check-detail">${cfg.path}</div>
+          </div>
+          ${!cfg.installed ? '<button class="show-cmd-btn" onclick="toggleCmd(this)">CMD</button>' : '<span style="font-size:9px;color:var(--green)">OK</span>'}
+        </div>
+        ${!cfg.installed ? '<div class="check-cmd" onclick="copyCmd(this)">' + cfg.install_cmd + '</div>' : ''}
+      `;
+    }).join('');
+
+    // Show "install all missing" command
+    const allCmd = document.getElementById('install-all-cmd');
+    if (missingCmds.length > 0) {
+      allCmd.style.display = 'block';
+      allCmd.textContent = missingCmds.join('\n\n');
+      allCmd.insertAdjacentHTML('beforebegin',
+        '<button class="btn" onclick="toggleAllCmds()" style="margin-top:10px" id="show-all-btn">Alle fehlenden Befehle anzeigen</button>');
+      allCmd.style.display = 'none';
+    }
+
+    if (d.is_docker) {
+      depEl.insertAdjacentHTML('beforebegin',
+        '<div style="color:var(--dim);font-size:10px;margin-bottom:8px;letter-spacing:1px">\u{1F433} Docker-Modus erkannt — Abhaengigkeiten werden vom Container verwaltet</div>');
+    }
+  } catch(e) { console.error(e); }
+}
+
+function toggleCmd(btn) {
+  const cmd = btn.closest('.check-item, .deploy-item').nextElementSibling;
+  if (cmd && cmd.classList.contains('check-cmd')) {
+    cmd.classList.toggle('visible');
+  }
+}
+
+function toggleAllCmds() {
+  const el = document.getElementById('install-all-cmd');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 loadConfig();
 loadStatus();
+loadInstallStatus();
 </script>
 </body>
 </html>
