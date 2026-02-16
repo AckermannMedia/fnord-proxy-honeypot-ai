@@ -1,0 +1,15 @@
+[Unit]
+Description=FNORD-PROXY Honeypot Dashboard
+After=network.target nginx.service fail2ban.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fnord-proxy
+ExecStart=/usr/bin/python3 /opt/fnord-proxy/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

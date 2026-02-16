@@ -1,0 +1,5 @@
+fnord.conf
+__pycache__/
+*.pyc
+*.log
+.env

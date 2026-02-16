@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>23</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+  :root { --red: #AF2B1E; --bright: #E03020; --bg: #0a0a0a; --dim: #3a1a18; --text: #ccaaa8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family:'Share Tech Mono',monospace;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden; position:relative;
+  }
+  body::before {
+    content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(175,43,30,0.03) 2px,rgba(175,43,30,0.03) 4px);
+    pointer-events:none; z-index:9999;
+  }
+  @keyframes glitch {
+    0%,90%,100%{transform:translate(0)} 92%{transform:translate(-3px,2px)}
+    94%{transform:translate(2px,-1px)} 96%{transform:translate(-1px,1px)}
+  }
+  @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 98%{opacity:0.9} }
+  .big23 {
+    font-family:'VT323',monospace; font-size:min(30vw, 280px); color:var(--bright);
+    text-shadow: 0 0 40px rgba(175,43,30,0.4), 0 0 80px rgba(175,43,30,0.2);
+    animation: glitch 8s infinite; line-height:0.85; letter-spacing:-5px;
+  }
+  .subtitle {
+    font-size:clamp(10px,2vw,14px); color:var(--red); letter-spacing:8px;
+    text-transform:uppercase; margin-top:20px;
+  }
+  .quote {
+    margin-top:40px; font-size:11px; color:var(--dim); max-width:500px;
+    text-align:center; line-height:1.6; letter-spacing:1px;
+  }
+  .terminal {
+    margin-top:40px; font-size:11px; color:var(--dim);
+    animation: flicker 6s infinite;
+  }
+  .terminal span { color:var(--red); }
+  .cursor { animation: blink 1s infinite; }
+  @keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+  .footer {
+    position:fixed; bottom:20px; font-size:9px; color:var(--dim);
+    letter-spacing:3px; text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="big23">23</div>
+<div class="subtitle">Nichts ist wie es scheint</div>
+<div class="quote">
+  "Alles ist mit allem verbunden.<br>
+  Nichts ist, was es zu sein scheint.<br>
+  Alles ist moeglich."
+</div>
+<div class="terminal"><span>hagbard@illuminatus:~$</span> <span class="cursor">_</span></div>
+<div class="footer">FNORD // 2+2=5 // ILLUMINATUS!</div>
+</body>
+</html>

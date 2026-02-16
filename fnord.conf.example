@@ -1,0 +1,17 @@
+# FNORD-PROXY Configuration
+# Copy to fnord.conf and adjust values
+
+# Dashboard bind address (use 127.0.0.1 for localhost only, or Tailscale IP)
+BIND_HOST=127.0.0.1
+BIND_PORT=8888
+
+# Log paths
+HONEYPOT_LOG=/var/log/nginx/honeypot.log
+F2B_DB=/var/lib/fail2ban/fail2ban.sqlite3
+F2B_LOG=/var/log/fail2ban.log
+
+# Your domain (used by install.sh)
+DOMAIN=example.com
+
+# Backend service to proxy (the real service behind the honeypot)
+BACKEND_URL=http://127.0.0.1:8080

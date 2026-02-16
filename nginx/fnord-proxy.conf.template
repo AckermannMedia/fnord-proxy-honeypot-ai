@@ -1,0 +1,142 @@
+# FNORD-PROXY nginx config template
+# Replace {{DOMAIN}} and {{BACKEND_URL}} with your values
+#
+# This config:
+# 1. Catches attackers on common paths (honeypot locations)
+# 2. Logs them to honeypot.log for the dashboard
+# 3. Proxies legitimate traffic to your real backend service
+
+server {
+    listen 443 ssl;
+    server_name {{DOMAIN}};
+
+    # --- SSL (adjust paths to your certs) ---
+    ssl_certificate /etc/letsencrypt/live/{{DOMAIN}}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{DOMAIN}}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # --- HONEYPOT LOCATIONS ---
+    # These catch scanners and bots probing for common vulnerabilities.
+    # Each returns a fake response and logs the attempt.
+
+    # Environment files
+    location = /.env {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "APP_KEY=base64:FNORD_FAKE_KEY_23\nDB_PASSWORD=fnord_not_real\nAWS_SECRET=AKIAFNORD23FAKE\n";
+    }
+    location = /.env.backup {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "DB_HOST=localhost\nDB_PASS=fnord23\n";
+    }
+
+    # WordPress
+    location = /wp-login.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><head><title>Log In</title></head><body><form method="post"><input name="log"/><input name="pwd" type="password"/><button>Log In</button></form></body></html>';
+    }
+    location = /wp-admin/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /wp-login.php;
+    }
+    location ~ ^/wp-includes/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }
+    location ~ ^/wp-content/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }
+    location = /xmlrpc.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/xml;
+        return 200 '<?xml version="1.0"?><methodResponse><params><param><value><string>XML-RPC server accepts POST requests only.</string></value></param></params></methodResponse>';
+    }
+
+    # Admin panels
+    location = /admin {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /admin/login;
+    }
+    location = /admin/login {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><body><h1>Admin Login</h1><form method="post"><input name="user" placeholder="Username"/><input name="pass" type="password"/><button>Login</button></form></body></html>';
+    }
+    location = /administrator {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /admin/login;
+    }
+
+    # phpMyAdmin
+    location = /phpmyadmin {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /phpmyadmin/index.php;
+    }
+    location = /phpmyadmin/index.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><body><h1>phpMyAdmin</h1><form><input name="pma_username"/><input name="pma_password" type="password"/><button>Go</button></form></body></html>';
+    }
+
+    # Git / Source code
+    location = /.git/config {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n[remote \"origin\"]\n\turl = git@github.com:fnord/secret-project.git\n";
+    }
+    location = /.git/HEAD {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "ref: refs/heads/main\n";
+    }
+    location ~ ^/\.git/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 403;
+    }
+
+    # Config / Backup files
+    location = /config.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "<?php\n\$db_host = 'localhost';\n\$db_pass = 'fnord23';\n";
+    }
+    location = /backup.sql {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "-- MySQL dump\nCREATE TABLE users (id INT, username VARCHAR(255), password VARCHAR(255));\nINSERT INTO users VALUES (1, 'admin', 'fnord23hash');\n";
+    }
+    location = /debug {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"debug":true,"env":"production","version":"2.3.0","db_host":"10.0.0.23"}';
+    }
+    location = /server-status {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "Apache Server Status\nServer uptime: 23 days\nTotal accesses: 23023\n";
+    }
+
+    # API honeypots
+    location = /api/v1/users {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"users":[{"id":1,"email":"admin@fnord.local","role":"superadmin"}]}';
+    }
+    location = /graphql {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"data":{"__schema":{"types":[{"name":"User"},{"name":"Secret"}]}}}';
+    }
+
+    # Catch-all for common scanner paths
+    location ~ ^/(cgi-bin|scripts|shell|eval|setup|install|console|actuator|solr) {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }
+
+    # --- REAL BACKEND PROXY ---
+    # Everything not caught by honeypots goes to your actual service
+    location / {
+        proxy_pass {{BACKEND_URL}};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
