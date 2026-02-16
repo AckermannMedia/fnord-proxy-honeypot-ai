@@ -1,0 +1,19 @@
+# Dev overrides — applied automatically with `docker compose up`
+# HTTP only, hot-reload, no fail2ban
+
+services:
+  nginx:
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+
+  dashboard:
+    build: .
+    volumes:
+      - ./app.py:/app/app.py:ro
+      - nginx-logs:/var/log/nginx:ro
+    environment:
+      - FNORD_HONEYPOT_LOG=/var/log/nginx/honeypot.log
+      - FNORD_BIND_HOST=0.0.0.0
+      - FNORD_BIND_PORT=8888

@@ -85,7 +85,43 @@ Three sections with real-time data, auto-refreshing every 30 seconds:
 
 ---
 
-## Quick Start
+## Quick Start — Docker (Recommended)
+
+```bash
+git clone https://github.com/AckermannMedia/fnord-proxy-honeypot-ai.git
+cd fnord-proxy-honeypot-ai
+docker compose up --build
+```
+
+That's it. Open [http://localhost:8080](http://localhost:8080) for the dashboard.
+
+**Test the honeypots:**
+```bash
+curl localhost:8080/.env              # Fake .env file — logged as honeypot hit
+curl localhost:8080/wp-login.php      # Fake WordPress login
+curl localhost:8080/.git/config       # Fake git config
+curl localhost:8080/api/v1/users      # Fake API response
+```
+
+Each request gets logged. Refresh the dashboard to see them appear in the Honeypot section.
+
+**Setup interface:** [http://localhost:8080/setup](http://localhost:8080/setup) — change themes, configure services, toggle honeypot categories.
+
+### Production with Docker
+
+```bash
+DOMAIN=example.com BACKEND_URL=http://10.0.0.5:80 \
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Production mode adds:
+- **SSL** via Let's Encrypt (mount your certs)
+- **fail2ban** with automatic IP banning (host networking + NET_ADMIN)
+- nginx envsubst for domain/backend injection
+
+---
+
+## Quick Start — Bare Metal
 
 ```bash
 git clone https://github.com/AckermannMedia/fnord-proxy-honeypot-ai.git
@@ -203,6 +239,60 @@ nginx uses **exact-match locations** (`location =`) for honeypot paths, which ta
 - `POST /identity/connect/token` → passes through to your backend service normally
 
 Your real service works exactly as before. Attackers just get trapped and logged on the way in.
+
+### Docker Architecture (Dev Mode)
+
+```
+localhost:8080 → nginx (HTTP) → honeypot locations → honeypot.log (shared volume)
+                             → location / → proxy to dashboard:8888
+                                                      ↓
+                                            reads honeypot.log from shared volume
+```
+
+### Docker Architecture (Production)
+
+```
+internet:443 → nginx (SSL) → honeypot locations → honeypot.log (shared volume)
+                           → location / → proxy to backend service
+                                                    ↓
+fail2ban (host network) ← reads honeypot.log ← shared volume
+dashboard:8888          ← reads honeypot.log ← shared volume
+```
+
+### Docker Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Dashboard image (python:3.12-slim + Flask) |
+| `docker-compose.yml` | Base: nginx + dashboard, shared log volume |
+| `docker-compose.override.yml` | Dev: HTTP only, port 8080, hot-reload |
+| `docker-compose.prod.yml` | Prod: SSL, fail2ban with NET_ADMIN, host networking |
+| `nginx/dev.conf` | Dev nginx config (HTTP, no SSL, proxy to dashboard) |
+
+---
+
+## Setup Interface
+
+Access at `/setup` — a web-based configuration wizard for fnord-proxy.
+
+### Features
+
+- **Theme selection** — 4 color schemes with live preview
+- **Service configuration** — domain, backend URL, dashboard bind address/port
+- **Honeypot path editor** — toggle which honeypot categories are active
+- **Status panel** — shows which components are running (nginx, fail2ban, dashboard)
+- **Config export** — generates `fnord.conf` or Docker `.env` file
+
+### Themes
+
+| Theme | Primary | Accent | Name |
+|-------|---------|--------|------|
+| 23 (default) | #AF2B1E | #E03020 | Feuerrot |
+| Matrix | #00AA00 | #00FF41 | Grün |
+| Synthwave | #7B2FBE | #B24BF3 | Lila |
+| Frost | #1B6CA8 | #22AADD | Eis |
+
+Theme selection is applied immediately via CSS variables and persists across sessions via `fnord.conf`.
 
 ---
 
@@ -340,16 +430,23 @@ bantime = 86400     # Ban duration (seconds) — default 24h
 
 ```
 fnord-proxy-honeypot-ai/
-├── app.py                          # Flask dashboard (Python backend + embedded 23-themed HTML/CSS/JS)
-├── install.sh                      # Interactive installer with dependency checks
+├── app.py                          # Flask dashboard + setup interface
+├── Dockerfile                      # Dashboard container image
+├── docker-compose.yml              # Base: nginx + dashboard
+├── docker-compose.override.yml     # Dev: HTTP, hot-reload, port 8080
+├── docker-compose.prod.yml         # Prod: SSL, fail2ban, host networking
+├── .dockerignore                   # Docker build exclusions
+├── install.sh                      # Interactive bare-metal installer
 ├── fnord.conf.example              # Configuration template
 ├── fnord-proxy.service             # systemd service unit
 ├── nginx/
-│   ├── honeypot-log-format.conf    # Custom nginx log format for honeypot entries
-│   └── fnord-proxy.conf.template   # Full nginx site config with 30+ honeypot locations
+│   ├── honeypot-log-format.conf    # Custom nginx log format
+│   ├── fnord-proxy.conf.template   # Production nginx config (SSL + honeypots)
+│   ├── dev.conf                    # Dev nginx config (HTTP + honeypots)
+│   └── docker-entrypoint.sh        # envsubst wrapper for Docker
 ├── fail2ban/
 │   ├── fnord-honeypot.conf         # fail2ban filter definition
-│   └── jail-fnord.conf             # fail2ban jail configuration
+│   └── jail-fnord.conf             # fail2ban jail (supports Docker chain)
 ├── landing/
 │   └── index.html                  # 23-themed decoy landing page
 ├── LICENSE                         # MIT License

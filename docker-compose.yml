@@ -1,0 +1,22 @@
+services:
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/honeypot-log-format.conf:/etc/nginx/conf.d/00-honeypot-log-format.conf:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - dashboard
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    environment:
+      - FNORD_HONEYPOT_LOG=/var/log/nginx/honeypot.log
+      - FNORD_BIND_HOST=0.0.0.0
+      - FNORD_BIND_PORT=8888
+    volumes:
+      - nginx-logs:/var/log/nginx:ro
+    restart: unless-stopped
+
+volumes:
+  nginx-logs:

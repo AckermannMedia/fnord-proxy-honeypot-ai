@@ -146,10 +146,10 @@ if [ "$SKIP_NGINX" = false ]; then
     # Site config
     NGINX_CONF="/etc/nginx/sites-available/fnord-${DOMAIN}"
     cp "$SCRIPT_DIR/nginx/fnord-proxy.conf.template" "$NGINX_CONF"
-    sed -i "s|{{DOMAIN}}|${DOMAIN}|g" "$NGINX_CONF"
+    sed -i "s|\${DOMAIN}|${DOMAIN}|g" "$NGINX_CONF"
 
     if [ -n "$BACKEND" ]; then
-        sed -i "s|{{BACKEND_URL}}|${BACKEND}|g" "$NGINX_CONF"
+        sed -i "s|\${BACKEND_URL}|${BACKEND}|g" "$NGINX_CONF"
     else
         # No backend - serve landing page instead
         sed -i '/--- REAL BACKEND PROXY ---/,/^    }/c\    # --- LANDING PAGE ---\n    location / {\n        root /var/www/fnord-landing;\n        index index.html;\n        try_files $uri $uri/ /index.html;\n    }' "$NGINX_CONF"

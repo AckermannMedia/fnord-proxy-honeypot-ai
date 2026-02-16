@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+LICENSE
+__pycache__
+*.pyc
+*.log
+.env
+install.sh
+fnord-proxy.service
+landing/
