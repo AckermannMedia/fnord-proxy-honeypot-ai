@@ -35,13 +35,14 @@ def load_config():
 
 _cfg = load_config()
 
-HONEYPOT_LOG = _cfg.get("HONEYPOT_LOG", os.environ.get("FNORD_HONEYPOT_LOG", "/var/log/nginx/honeypot.log"))
+# Environment variables (FNORD_*) take priority over config file
+HONEYPOT_LOG = os.environ.get("FNORD_HONEYPOT_LOG", _cfg.get("HONEYPOT_LOG", "/var/log/nginx/honeypot.log"))
 HONEYPOT_LOG_OLD = HONEYPOT_LOG + ".1"
-F2B_DB = _cfg.get("F2B_DB", os.environ.get("FNORD_F2B_DB", "/var/lib/fail2ban/fail2ban.sqlite3"))
-F2B_LOG = _cfg.get("F2B_LOG", os.environ.get("FNORD_F2B_LOG", "/var/log/fail2ban.log"))
+F2B_DB = os.environ.get("FNORD_F2B_DB", _cfg.get("F2B_DB", "/var/lib/fail2ban/fail2ban.sqlite3"))
+F2B_LOG = os.environ.get("FNORD_F2B_LOG", _cfg.get("F2B_LOG", "/var/log/fail2ban.log"))
 F2B_LOG_OLD = F2B_LOG + ".1"
-BIND_HOST = _cfg.get("BIND_HOST", os.environ.get("FNORD_BIND_HOST", "127.0.0.1"))
-BIND_PORT = int(_cfg.get("BIND_PORT", os.environ.get("FNORD_BIND_PORT", "8888")))
+BIND_HOST = os.environ.get("FNORD_BIND_HOST", _cfg.get("BIND_HOST", "127.0.0.1"))
+BIND_PORT = int(os.environ.get("FNORD_BIND_PORT", _cfg.get("BIND_PORT", "8888")))
 
 GEOIP_CACHE = {}
 
@@ -504,6 +505,11 @@ THEME_PRESETS = {
         "glow": "#44CCFF", "card": "#04080e", "border": "#0e1e2a",
         "text": "#a8b8cc", "dim": "#384a5a", "dark": "#08101a",
     },
+    "klarrot": {
+        "name": "Klarrot", "primary": "#CC2211", "accent": "#FF3322",
+        "glow": "#FF5544", "card": "#1a0a08", "border": "#3a1510",
+        "text": "#f0f0f0", "dim": "#aa8888", "dark": "#120606",
+    },
 }
 
 HONEYPOT_CATEGORIES = {
@@ -599,7 +605,10 @@ def component_status():
 
 @app.route("/setup")
 def setup_page():
-    return render_template_string(SETUP_HTML)
+    cfg = load_config()
+    theme_id = cfg.get("THEME", "23")
+    theme = THEME_PRESETS.get(theme_id, THEME_PRESETS["23"])
+    return render_template_string(SETUP_HTML, theme=theme, theme_id=theme_id)
 
 
 # --- Setup Interface HTML ---
@@ -614,14 +623,14 @@ SETUP_HTML = r"""<!DOCTYPE html>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
   :root {
     --bg: #0a0a0a;
-    --card: #0e0404;
-    --border: #2a0e0e;
-    --text: #ccaaa8;
-    --dim: #5a3a38;
-    --red: #AF2B1E;
-    --bright: #E03020;
-    --glow: #FF3828;
-    --dark: #1a0808;
+    --card: {{ theme.card }};
+    --border: {{ theme.border }};
+    --text: {{ theme.text }};
+    --dim: {{ theme.dim }};
+    --red: {{ theme.primary }};
+    --bright: {{ theme.accent }};
+    --glow: {{ theme.glow }};
+    --dark: {{ theme.dark }};
     --amber: #cc6622;
     --green: #448844;
     --cyan: #668888;
@@ -873,6 +882,7 @@ SETUP_HTML = r"""<!DOCTYPE html>
     <button class="btn primary" onclick="saveConfig()">Konfiguration Speichern</button>
     <button class="btn" onclick="exportConfig()">Config Export</button>
     <button class="btn" onclick="exportDocker()">Docker Export</button>
+    <button class="btn" onclick="exportSnippet()">Nginx Snippet</button>
   </div>
   <div class="config-output" id="config-output"></div>
 </div>
@@ -890,6 +900,7 @@ const THEMES = {
   "matrix":    {name:"Grün",      primary:"#00AA00", accent:"#00FF41", glow:"#33FF66", card:"#040e04", border:"#0e2a0e", text:"#a8ccaa", dim:"#3a5a38", dark:"#081a08"},
   "synthwave": {name:"Lila",      primary:"#7B2FBE", accent:"#B24BF3", glow:"#D06FFF", card:"#0a040e", border:"#1e0e2a", text:"#bca8cc", dim:"#4a385a", dark:"#10081a"},
   "frost":     {name:"Eis",       primary:"#1B6CA8", accent:"#22AADD", glow:"#44CCFF", card:"#04080e", border:"#0e1e2a", text:"#a8b8cc", dim:"#384a5a", dark:"#08101a"},
+  "klarrot":   {name:"Klarrot",   primary:"#CC2211", accent:"#FF3322", glow:"#FF5544", card:"#1a0a08", border:"#3a1510", text:"#f0f0f0", dim:"#aa8888", dark:"#120606"},
 };
 
 const CATEGORIES = {
@@ -904,7 +915,7 @@ const CATEGORIES = {
   scanners:   {label:"Scanner Catch-all", paths:["/cgi-bin/*","/shell","/eval","/install","/console","/actuator","/solr"]},
 };
 
-let currentTheme = "23";
+let currentTheme = "{{ theme_id }}";
 let activeCategories = Object.keys(CATEGORIES);
 
 function applyTheme(id) {
@@ -1036,6 +1047,58 @@ HONEYPOT_CATEGORIES=${JSON.stringify(activeCategories)}
   el.textContent = '# fnord.conf\n' + conf;
   el.classList.add('visible');
   toast('Config Export generiert');
+}
+
+function exportSnippet() {
+  const txt = `# Honeypot in bestehenden nginx einbinden
+# ==========================================
+#
+# 1. Log-Format zu nginx.conf hinzufuegen (im http{} Block):
+#
+#    log_format honeypot_log '$remote_addr|$time_iso8601|$request_uri|$status|$http_user_agent|$http_referer';
+#
+# 2. Snippet kopieren:
+#
+#    sudo cp nginx/honeypot-locations.conf /etc/nginx/snippets/honeypot-locations.conf
+#
+# 3. In JEDEN server{} Block einfuegen (vor location /):
+#
+#    server {
+#        listen 443 ssl;
+#        server_name site-a.example.com;
+#        ...
+#        include /etc/nginx/snippets/honeypot-locations.conf;
+#
+#        location / {
+#            proxy_pass http://backend-a;
+#        }
+#    }
+#
+#    server {
+#        listen 443 ssl;
+#        server_name site-b.example.com;
+#        ...
+#        include /etc/nginx/snippets/honeypot-locations.conf;
+#
+#        location / {
+#            proxy_pass http://backend-b;
+#        }
+#    }
+#
+# 4. nginx reload:
+#
+#    sudo nginx -t && sudo systemctl reload nginx
+#
+# 5. Dashboard starten (liest /var/log/nginx/honeypot.log):
+#
+#    pip3 install flask
+#    python3 app.py
+#    # oder: docker compose -f docker-compose.dashboard-only.yml up -d
+`;
+  const el = document.getElementById('config-output');
+  el.textContent = txt;
+  el.classList.add('visible');
+  toast('Nginx Snippet Anleitung generiert');
 }
 
 function exportDocker() {
@@ -1542,9 +1605,26 @@ setInterval(()=>{
   else{el.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(s).padStart(2,'0');el.style.color='';}
 },1000);
 
+async function syncTheme() {
+  try {
+    const d = await (await fetch('/api/config')).json();
+    const t = d.themes && d.themes[d.theme];
+    if (!t) return;
+    const r = document.documentElement.style;
+    r.setProperty('--red', t.primary);
+    r.setProperty('--bright', t.accent);
+    r.setProperty('--glow', t.glow);
+    r.setProperty('--card', t.card);
+    r.setProperty('--border', t.border);
+    r.setProperty('--text', t.text);
+    r.setProperty('--dim', t.dim);
+    r.setProperty('--dark', t.dark);
+  } catch(e) {}
+}
+
 async function refresh() {
   try {
-    await Promise.all([refreshHP(), refreshF2B(), refreshPatterns()]);
+    await Promise.all([refreshHP(), refreshF2B(), refreshPatterns(), syncTheme()]);
     document.getElementById('refresh').textContent = new Date().toLocaleTimeString('de-DE') + ' // SYNCED';
   } catch(e) { console.error(e); }
 }

@@ -1,0 +1,25 @@
+# Dashboard-only mode — for existing nginx setups
+#
+# Use this if you already have nginx running and just want the dashboard.
+# Your nginx writes to honeypot.log, dashboard reads it.
+#
+# Usage:
+#   docker compose -f docker-compose.dashboard-only.yml up -d
+#
+# Prerequisites:
+#   1. Copy nginx/honeypot-locations.conf to /etc/nginx/snippets/
+#   2. Add "include /etc/nginx/snippets/honeypot-locations.conf;" to your server blocks
+#   3. Add the honeypot_log format to your nginx.conf
+
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      - FNORD_HONEYPOT_LOG=/var/log/nginx/honeypot.log
+      - FNORD_BIND_HOST=0.0.0.0
+      - FNORD_BIND_PORT=8888
+    volumes:
+      - /var/log/nginx:/var/log/nginx:ro
+    restart: unless-stopped
