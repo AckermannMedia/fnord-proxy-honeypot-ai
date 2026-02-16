@@ -297,6 +297,7 @@ Access at `/setup` — a web-based configuration wizard for fnord-proxy.
 | Matrix | #00AA00 | #00FF41 | Grün |
 | Synthwave | #7B2FBE | #B24BF3 | Lila |
 | Frost | #1B6CA8 | #22AADD | Eis |
+| Klarrot | #CC2211 | #FF3322 | Klarrot |
 
 Theme selection is applied immediately via CSS variables and persists across sessions via `fnord.conf`.
 
@@ -437,24 +438,29 @@ bantime = 86400     # Ban duration (seconds) — default 24h
 ```
 fnord-proxy-honeypot-ai/
 ├── app.py                          # Flask dashboard + setup interface
+├── requirements.txt                # Python dependencies
 ├── Dockerfile                      # Dashboard container image
 ├── docker-compose.yml              # Base: nginx + dashboard
 ├── docker-compose.override.yml     # Dev: HTTP, hot-reload, port 8080
 ├── docker-compose.prod.yml         # Prod: SSL, fail2ban, host networking
+├── docker-compose.dashboard-only.yml # Dashboard without nginx/fail2ban
 ├── .dockerignore                   # Docker build exclusions
 ├── install.sh                      # Interactive bare-metal installer
 ├── fnord.conf.example              # Configuration template
 ├── fnord-proxy.service             # systemd service unit
 ├── nginx/
 │   ├── honeypot-log-format.conf    # Custom nginx log format
+│   ├── honeypot-locations.conf     # Honeypot path definitions
 │   ├── fnord-proxy.conf.template   # Production nginx config (SSL + honeypots)
-│   ├── dev.conf                    # Dev nginx config (HTTP + honeypots)
-│   └── docker-entrypoint.sh        # envsubst wrapper for Docker
+│   └── dev.conf                    # Dev nginx config (HTTP + honeypots)
 ├── fail2ban/
 │   ├── fnord-honeypot.conf         # fail2ban filter definition
 │   └── jail-fnord.conf             # fail2ban jail (supports Docker chain)
 ├── landing/
 │   └── index.html                  # 23-themed decoy landing page
+├── screenshots/
+│   ├── dashboard-full.png          # Dashboard overview
+│   └── setup.png                   # Setup interface
 ├── LICENSE                         # MIT License
 └── README.md
 ```

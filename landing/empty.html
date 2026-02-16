@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Page</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #0e0e0e; color: #7a7a7a; font-family: monospace;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px; position:relative;
+  }
+  body::before {
+    content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px);
+    pointer-events:none; z-index:9999;
+  }
+  h1 {
+    font-size:clamp(32px,6vw,48px); font-weight:normal; color:#a0a0a0;
+    margin-bottom:20px;
+  }
+  p {
+    font-size:14px; line-height:1.6; color:#6a6a6a;
+    max-width:600px; text-align:center;
+  }
+  .small {
+    margin-top:30px; font-size:12px; color:#4a4a4a;
+  }
+  hr {
+    border:none; border-top:1px solid #1a1a1a;
+    width:100%; max-width:600px; margin:30px 0;
+  }
+  .footer {
+    position:fixed; bottom:15px; font-size:10px; color:#2a2a2a;
+  }
+</style>
+</head>
+<body>
+<h1>It works!</h1>
+<p>
+  This is the default web page for this server.<br>
+  The web server software is running but no content has been added yet.
+</p>
+<hr>
+<p class="small">
+  If you are a member of the general public:<br>
+  The fact that you are seeing this page indicates that the website you just visited is either
+  experiencing problems or is undergoing routine maintenance.
+</p>
+<p class="small">
+  If you are the website administrator:<br>
+  You may now add content to this directory and replace this page.
+</p>
+<div class="footer">Server: nginx/1.24.0</div>
+</body>
+</html>

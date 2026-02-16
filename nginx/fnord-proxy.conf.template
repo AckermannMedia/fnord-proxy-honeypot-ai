@@ -126,7 +126,7 @@ server {
     }
 
     # Catch-all for common scanner paths
-    location ~ ^/(cgi-bin|scripts|shell|eval|setup|install|console|actuator|solr) {
+    location ~ ^/(cgi-bin|scripts|shell|eval|install|console|actuator|solr) {
         access_log /var/log/nginx/honeypot.log honeypot_log;
         return 404;
     }

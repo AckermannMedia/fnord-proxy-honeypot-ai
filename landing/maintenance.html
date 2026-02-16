@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheduled Maintenance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400&display=swap');
+  :root { --bg: #0a0a0a; --text: #9a9a9a; --warn: #d4a017; --dim: #4a4a4a; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family:'Roboto Mono',monospace;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden; position:relative;
+  }
+  body::before {
+    content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(212,160,23,0.02) 2px,rgba(212,160,23,0.02) 4px);
+    pointer-events:none; z-index:9999;
+  }
+  .icon {
+    font-size:48px; color:var(--warn); margin-bottom:20px;
+    text-shadow: 0 0 20px rgba(212,160,23,0.3);
+  }
+  h1 {
+    font-size:clamp(20px,4vw,28px); font-weight:400; color:#fff;
+    margin-bottom:15px; letter-spacing:2px;
+  }
+  .status {
+    font-size:12px; color:var(--warn); letter-spacing:3px;
+    text-transform:uppercase; margin-bottom:30px;
+  }
+  .info {
+    font-size:13px; line-height:1.8; color:var(--text);
+    max-width:500px; text-align:center; margin-bottom:25px;
+  }
+  .timer {
+    font-size:32px; color:var(--warn); letter-spacing:4px;
+    margin-bottom:10px; font-weight:300;
+  }
+  .label {
+    font-size:10px; color:var(--dim); letter-spacing:2px;
+    text-transform:uppercase; margin-bottom:30px;
+  }
+  .window {
+    font-size:11px; color:var(--dim); line-height:1.6;
+    border-top:1px solid #1a1a1a; border-bottom:1px solid #1a1a1a;
+    padding:15px 0; margin-top:20px;
+  }
+  .footer {
+    position:fixed; bottom:20px; font-size:9px; color:#2a2a2a;
+    letter-spacing:2px;
+  }
+</style>
+</head>
+<body>
+<div class="icon">&#9888;</div>
+<h1>Scheduled Maintenance</h1>
+<div class="status">In Progress</div>
+<div class="info">
+  We are performing scheduled system maintenance and upgrades.<br>
+  Service will be restored shortly. Thank you for your patience.
+</div>
+<div class="timer" id="countdown">03:42:17</div>
+<div class="label">Estimated time remaining</div>
+<div class="window">
+  Maintenance Window: 02:00 - 06:00 UTC<br>
+  Expected Completion: 05:30 UTC
+</div>
+<div class="footer">MAINTENANCE STATUS // REF: MNT-2026-0216</div>
+<script>
+let t=13337;setInterval(()=>{if(t>0)t--;let h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;document.getElementById('countdown').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;},1000);
+</script>
+</body>
+</html>

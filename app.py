@@ -539,6 +539,7 @@ def get_config():
         "honeypot_categories": json.loads(cfg.get("HONEYPOT_CATEGORIES", "null")) or list(HONEYPOT_CATEGORIES.keys()),
         "themes": THEME_PRESETS,
         "available_categories": HONEYPOT_CATEGORIES,
+        "landing_page": cfg.get("LANDING_PAGE", "fnord"),
     })
 
 
@@ -563,6 +564,7 @@ def save_config():
         "F2B_LOG": existing.get("F2B_LOG", "/var/log/fail2ban.log"),
         "THEME": data.get("theme", existing.get("THEME", "23")),
         "HONEYPOT_CATEGORIES": json.dumps(data.get("honeypot_categories", list(HONEYPOT_CATEGORIES.keys()))),
+        "LANDING_PAGE": data.get("landing_page", existing.get("LANDING_PAGE", "fnord")),
     }
 
     try:
@@ -585,13 +587,26 @@ def save_config():
 @app.route("/api/status")
 def component_status():
     """Check which components are running."""
-    status = {}
+    is_docker = os.path.exists("/.dockerenv")
+    status = {"mode": "docker" if is_docker else "bare-metal"}
     # Check nginx
-    try:
-        subprocess.check_output(["pgrep", "-x", "nginx"], timeout=3)
-        status["nginx"] = "running"
-    except Exception:
-        status["nginx"] = "stopped"
+    if is_docker:
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://nginx:80", timeout=2)
+            status["nginx"] = "running"
+        except Exception:
+            try:
+                subprocess.check_output(["pgrep", "-x", "nginx"], timeout=3)
+                status["nginx"] = "running"
+            except Exception:
+                status["nginx"] = "stopped"
+    else:
+        try:
+            subprocess.check_output(["pgrep", "-x", "nginx"], timeout=3)
+            status["nginx"] = "running"
+        except Exception:
+            status["nginx"] = "stopped"
     # Check fail2ban
     try:
         subprocess.check_output(["pgrep", "-x", "fail2ban-server"], timeout=3)
@@ -706,6 +721,185 @@ def install_status():
         "dependencies": deps,
         "configs": configs,
     })
+
+
+LANDING_PAGES = {
+    "fnord": {"label": "FNORD // 23", "file": "landing/index.html", "description": "Default hacker aesthetic landing page"},
+    "corporate": {"label": "Corporate", "file": "landing/corporate.html", "description": "Clean professional business page"},
+    "maintenance": {"label": "Wartung", "file": "landing/maintenance.html", "description": "Maintenance / coming soon page"},
+    "empty": {"label": "Leer", "file": "landing/empty.html", "description": "Minimal empty placeholder"},
+}
+
+
+CATEGORY_BLOCKS = {
+    "env": """    # Environment files
+    location = /.env {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "APP_KEY=base64:FNORD_FAKE_KEY_23\\nDB_PASSWORD=fnord_not_real\\nAWS_SECRET=AKIAFNORD23FAKE\\n";
+    }
+    location = /.env.backup {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "DB_HOST=localhost\\nDB_PASS=fnord23\\n";
+    }""",
+    "wordpress": """    # WordPress
+    location = /wp-login.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><head><title>Log In</title></head><body><form method="post"><input name="log"/><input name="pwd" type="password"/><button>Log In</button></form></body></html>';
+    }
+    location = /wp-admin/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /wp-login.php;
+    }
+    location ~ ^/wp-includes/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }
+    location ~ ^/wp-content/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }
+    location = /xmlrpc.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/xml;
+        return 200 '<?xml version="1.0"?><methodResponse><params><param><value><string>XML-RPC server accepts POST requests only.</string></value></param></params></methodResponse>';
+    }""",
+    "admin": """    # Admin panels
+    location = /admin {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /admin/login;
+    }
+    location = /admin/login {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><body><h1>Admin Login</h1><form method="post"><input name="user" placeholder="Username"/><input name="pass" type="password"/><button>Login</button></form></body></html>';
+    }
+    location = /administrator {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /admin/login;
+    }""",
+    "phpmyadmin": """    # phpMyAdmin
+    location = /phpmyadmin {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 302 /phpmyadmin/index.php;
+    }
+    location = /phpmyadmin/index.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type text/html;
+        return 200 '<html><body><h1>phpMyAdmin</h1><form><input name="pma_username"/><input name="pma_password" type="password"/><button>Go</button></form></body></html>';
+    }""",
+    "git": """    # Git / Source code
+    location = /.git/config {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "[core]\\n\\trepositoryformatversion = 0\\n\\tfilemode = true\\n[remote \\"origin\\"]\\n\\turl = git@github.com:fnord/secret-project.git\\n";
+    }
+    location = /.git/HEAD {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "ref: refs/heads/main\\n";
+    }
+    location ~ ^/\\.git/ {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 403;
+    }""",
+    "config": """    # Config / Backup files
+    location = /config.php {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "<?php\\ndefine('DB_HOST', 'localhost');\\ndefine('DB_PASS', 'fnord23');\\n";
+    }
+    location = /backup.sql {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "-- MySQL dump\\nCREATE TABLE users (id INT, username VARCHAR(255), password VARCHAR(255));\\nINSERT INTO users VALUES (1, 'admin', 'fnord23hash');\\n";
+    }""",
+    "debug": """    # Debug / Status
+    location = /debug {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"debug":true,"env":"production","version":"2.3.0","db_host":"10.0.0.23"}';
+    }
+    location = /server-status {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 200 "Apache Server Status\\nServer uptime: 23 days\\nTotal accesses: 23023\\n";
+    }""",
+    "api": """    # API honeypots
+    location = /api/v1/users {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"users":[{"id":1,"email":"admin@fnord.local","role":"superadmin"}]}';
+    }
+    location = /graphql {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        default_type application/json;
+        return 200 '{"data":{"__schema":{"types":[{"name":"User"},{"name":"Secret"}]}}}';
+    }""",
+    "scanners": """    # Catch-all for common scanner paths
+    location ~ ^/(cgi-bin|scripts|shell|eval|install|console|actuator|solr) {
+        access_log /var/log/nginx/honeypot.log honeypot_log;
+        return 404;
+    }""",
+}
+
+
+@app.route("/api/landing-pages")
+def get_landing_pages():
+    """Return available landing pages."""
+    cfg = load_config()
+    active = cfg.get("LANDING_PAGE", "fnord")
+    pages = {}
+    for page_id, info in LANDING_PAGES.items():
+        pages[page_id] = {**info, "active": page_id == active}
+    return jsonify({"pages": pages, "active": active})
+
+
+@app.route("/landing-preview/<page_id>")
+def landing_preview(page_id):
+    """Preview a landing page."""
+    if page_id not in LANDING_PAGES:
+        return "Not found", 404
+    filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), LANDING_PAGES[page_id]["file"])
+    if not os.path.exists(filepath):
+        return "File not found", 404
+    with open(filepath) as f:
+        return f.read()
+
+
+@app.route("/api/generate-nginx", methods=["POST"])
+def generate_nginx():
+    """Generate nginx config based on active honeypot categories."""
+    data = request.get_json() or {}
+    categories = data.get("categories", list(HONEYPOT_CATEGORIES.keys()))
+    domain = data.get("domain", "example.com")
+    backend_url = data.get("backend_url", "http://127.0.0.1:8080")
+
+    blocks = []
+    for cat_id in categories:
+        if cat_id in CATEGORY_BLOCKS:
+            blocks.append(CATEGORY_BLOCKS[cat_id])
+
+    honeypot_section = "\n\n".join(blocks)
+
+    config = f"""server {{
+    listen 443 ssl;
+    server_name {domain};
+
+    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # --- HONEYPOT LOCATIONS ---
+
+{honeypot_section}
+
+    # --- REAL BACKEND PROXY ---
+    location / {{
+        proxy_pass {backend_url};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+}}"""
+
+    return jsonify({"config": config})
 
 
 @app.route("/setup")
@@ -1011,9 +1205,19 @@ SETUP_HTML = r"""<!DOCTYPE html>
   <div class="hp-grid" id="hp-grid"></div>
 </div>
 
-<!-- INSTALL -->
+<!-- LANDING PAGES -->
 <div class="section">
   <span class="num">04</span>
+  <span class="title">Landing Page // Startseite</span>
+</div>
+<div class="card">
+  <h2>Waehle die Landing Page fuer Besucher</h2>
+  <div class="themes" id="landing-grid"></div>
+</div>
+
+<!-- INSTALL -->
+<div class="section">
+  <span class="num">05</span>
   <span class="title">Installation // Abhaengigkeiten</span>
 </div>
 <div class="card">
@@ -1028,7 +1232,7 @@ SETUP_HTML = r"""<!DOCTYPE html>
 
 <!-- ACTIONS -->
 <div class="section">
-  <span class="num">05</span>
+  <span class="num">06</span>
   <span class="title">Aktionen</span>
 </div>
 <div class="card">
@@ -1037,6 +1241,7 @@ SETUP_HTML = r"""<!DOCTYPE html>
     <button class="btn" onclick="exportConfig()">Config Export</button>
     <button class="btn" onclick="exportDocker()">Docker Export</button>
     <button class="btn" onclick="exportSnippet()">Nginx Snippet</button>
+    <button class="btn" onclick="generateNginx()">Nginx Config Generieren</button>
   </div>
   <div class="config-output" id="config-output"></div>
 </div>
@@ -1071,6 +1276,7 @@ const CATEGORIES = {
 
 let currentTheme = "{{ theme_id }}";
 let activeCategories = Object.keys(CATEGORIES);
+let currentLanding = "fnord";
 
 function applyTheme(id) {
   const t = THEMES[id];
@@ -1117,6 +1323,28 @@ function renderCategories() {
   }).join('');
 }
 
+async function loadLandingPages() {
+  try {
+    const d = await (await fetch('/api/landing-pages')).json();
+    currentLanding = d.active || 'fnord';
+    const el = document.getElementById('landing-grid');
+    el.innerHTML = Object.entries(d.pages).map(([id, p]) => `
+      <div class="theme-card ${id===currentLanding?'active':''}" data-landing="${id}" onclick="selectLanding('${id}')">
+        <div class="theme-swatch" style="background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:18px;border-radius:4px;width:40px;height:40px;margin:0 auto 8px">${id==='fnord'?'&#9760;':id==='corporate'?'&#127970;':id==='maintenance'?'&#128295;':'&#9723;'}</div>
+        <div class="theme-name" style="color:var(--bright);font-size:16px">${p.label}</div>
+        <div class="theme-label">${p.description}</div>
+      </div>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+function selectLanding(id) {
+  currentLanding = id;
+  document.querySelectorAll('[data-landing]').forEach(c => {
+    c.classList.toggle('active', c.dataset.landing === id);
+  });
+}
+
 function toggleCategory(id, el) {
   const idx = activeCategories.indexOf(id);
   if (idx >= 0) {
@@ -1151,9 +1379,13 @@ async function loadConfig() {
     if (d.honeypot_categories) {
       activeCategories = d.honeypot_categories;
     }
+    if (d.landing_page) {
+      currentLanding = d.landing_page;
+    }
   } catch(e) { console.error(e); }
   renderThemes();
   renderCategories();
+  loadLandingPages();
 }
 
 async function saveConfig() {
@@ -1165,6 +1397,7 @@ async function saveConfig() {
       bind_port: document.getElementById('cfg-port').value,
       theme: currentTheme,
       honeypot_categories: activeCategories,
+      landing_page: currentLanding,
     };
     const resp = await fetch('/api/config', {
       method: 'POST',
@@ -1282,6 +1515,7 @@ async function loadStatus() {
   try {
     const d = await (await fetch('/api/status')).json();
     for (const [name, state] of Object.entries(d)) {
+      if (name === 'mode') continue;
       const dot = document.getElementById('dot-' + name);
       const label = document.getElementById('state-' + name);
       if (dot) {
@@ -1290,6 +1524,14 @@ async function loadStatus() {
       if (label) {
         label.textContent = state;
       }
+    }
+    // Show mode badge
+    const grid = document.getElementById('status-grid');
+    const existing = document.getElementById('mode-badge');
+    if (existing) existing.remove();
+    if (d.mode) {
+      grid.insertAdjacentHTML('beforeend',
+        '<div class="status-item" id="mode-badge"><div><span class="status-dot running"></span><span class="status-name">' + d.mode + '</span></div><div class="status-state">modus</div></div>');
     }
   } catch(e) { console.error(e); }
 }
@@ -1364,6 +1606,26 @@ function toggleCmd(btn) {
 function toggleAllCmds() {
   const el = document.getElementById('install-all-cmd');
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function generateNginx() {
+  try {
+    const body = {
+      categories: activeCategories,
+      domain: document.getElementById('cfg-domain').value || 'example.com',
+      backend_url: document.getElementById('cfg-backend').value || 'http://127.0.0.1:8080',
+    };
+    const resp = await fetch('/api/generate-nginx', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await resp.json();
+    const el = document.getElementById('config-output');
+    el.textContent = d.config;
+    el.classList.add('visible');
+    toast('Nginx Config generiert');
+  } catch(e) { toast('Fehler: ' + e.message, true); }
 }
 
 loadConfig();

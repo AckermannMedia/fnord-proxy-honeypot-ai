@@ -8,4 +8,6 @@ __pycache__
 .env
 install.sh
 fnord-proxy.service
-landing/
+screenshots/
+fail2ban/
+nginx/

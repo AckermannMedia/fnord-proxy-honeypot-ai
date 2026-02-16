@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Under Construction</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+  :root { --bg: #0d0d0d; --text: #8a8a8a; --accent: #1a1a1a; --border: #2a2a2a; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family:'Inter',sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden; position:relative;
+  }
+  body::before {
+    content:''; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.015) 2px,rgba(255,255,255,0.015) 4px);
+    pointer-events:none; z-index:9999;
+  }
+  .container {
+    max-width:600px; padding:40px; text-align:center;
+    border:1px solid var(--border); background:rgba(26,26,26,0.4);
+  }
+  .logo {
+    font-size:clamp(24px,4vw,32px); font-weight:600; color:#fff;
+    letter-spacing:8px; margin-bottom:30px;
+  }
+  h1 {
+    font-size:clamp(18px,3vw,22px); font-weight:400; color:#b0b0b0;
+    margin-bottom:20px; letter-spacing:2px;
+  }
+  p {
+    font-size:13px; line-height:1.8; color:var(--text);
+    margin-bottom:15px; font-weight:300;
+  }
+  .divider {
+    width:60px; height:1px; background:var(--border);
+    margin:30px auto; opacity:0.5;
+  }
+  .info {
+    font-size:11px; color:#5a5a5a; letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .footer {
+    position:fixed; bottom:20px; font-size:10px; color:#3a3a3a;
+    letter-spacing:2px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">ENTERPRISE</div>
+  <h1>Under Construction</h1>
+  <p>We are currently updating our digital infrastructure to better serve your needs.</p>
+  <p>Our team is working diligently to bring you an enhanced experience.</p>
+  <div class="divider"></div>
+  <div class="info">Expected completion: Q2 2026</div>
+</div>
+<div class="footer">ENTERPRISE SOLUTIONS &copy; 2026</div>
+</body>
+</html>
