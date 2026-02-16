@@ -16,6 +16,35 @@ Themed after the movie **"23 - Nichts ist wie es scheint"** (Karl Koch / Chaos C
 
 ---
 
+## Why This Exists
+
+Every server connected to the internet is under constant, automated attack. Within minutes of going online, bots start probing for `.env` files, WordPress logins, exposed Git repositories, phpMyAdmin instances, and dozens of other common misconfigurations. This isn't targeted — it's industrial-scale scanning by botnets that don't care what your server actually runs. They just spray requests at every IP and see what sticks.
+
+The numbers are staggering. A single VPS with nothing but SSH and nginx will see **hundreds to thousands of brute force attempts per day**. Credential stuffing bots cycle through leaked username/password lists. Vulnerability scanners probe for every CVE published in the last decade. Most of this traffic comes from compromised machines in massive botnets — your server is just one of millions being hit simultaneously.
+
+**The traditional response is passive:** fail2ban watches logs, bans IPs after failed attempts, and that's it. You know you're being attacked, but you don't see the patterns. You don't know which traps are being triggered, which countries the attacks come from, whether it's a coordinated wave or background noise, or what usernames the bots are currently trying.
+
+**FNORD-PROXY takes an active approach:**
+
+1. **Turn their scanning against them.** Instead of just blocking probes, serve fake but realistic responses. An attacker hitting `/.env` gets back what looks like real AWS credentials. This wastes their time — they'll try to use the fake keys, maybe probe deeper, and every additional request gets logged and accelerates their ban.
+
+2. **See everything in real time.** The dashboard doesn't just count attacks — it categorizes them. You can see that the current bot wave is trying crypto-related usernames (solana, validator, miner), that attacks peak at 3 AM UTC, that one IP from Vietnam is hitting you at 45 attempts per minute, and that the `.env` honeypot catches more scanners than all WordPress traps combined.
+
+3. **Protect real services transparently.** The honeypot sits as an nginx layer in front of your actual application. Legitimate API calls, web requests, and client connections pass through untouched. Attackers get trapped before they ever reach your service.
+
+### Why AI?
+
+This entire project — the nginx honeypot configs with realistic fake responses, the Flask dashboard with three analytics engines, the fail2ban integration, the install script, the themed UI — was built in a single interactive session with **Claude Code**. Not as a gimmick, but because this is exactly the kind of project where AI-assisted development shines:
+
+- **Cross-domain integration** — nginx config syntax, Python Flask, JavaScript frontend, fail2ban filter regex, systemd units, shell scripting — all in one project. An AI assistant can context-switch between these seamlessly.
+- **Realistic fake data** — the honeypot responses need to look convincing. AI can generate plausible `.env` files, database dumps, API responses, and login forms that waste attacker time.
+- **Pattern recognition** — the SSH attack analysis (username categorization, brute force velocity calculation, attack wave detection) was designed iteratively by discussing what patterns are actually interesting to see.
+- **Rapid iteration** — from "can we add fail2ban stats?" to a working dashboard section with six metrics, timeline charts, heatmaps, and GeoIP lookups in minutes, not hours.
+
+The bots are automated. The defense should be too — or at least, building it should be fast enough to keep up.
+
+---
+
 ## Features
 
 ### Honeypot Reverse Proxy
@@ -372,7 +401,9 @@ Pipe-delimited for easy parsing. The dashboard reads this format directly.
 
 ## Built with AI
 
-This project was built interactively with **Claude Code** (Anthropic) as part of a homelab security setup. The entire codebase — nginx configs, Flask dashboard with embedded frontend, fail2ban integration, install script, themed landing page, and the 23-themed dashboard UI — was developed in a conversation session and then packaged into this repository.
+This project was built interactively with **Claude Code** (Anthropic's CLI tool) as part of a homelab security setup. The entire codebase — nginx honeypot configs with 30+ realistic trap locations, a Flask dashboard with three separate analytics engines (fail2ban stats, SSH attack pattern analysis, honeypot access tracking), fail2ban filter and jail integration, a systemd service, an interactive install script, a themed landing page, and the full 23-themed dashboard UI with CRT effects — was developed through conversation and packaged into this repository.
+
+No code was written manually. Every file was generated, tested, and iterated on through natural language prompts. The project went from "can we put honeypots in front of my Vaultwarden?" to a fully-featured, deployable security tool with real-time analytics in a single session.
 
 ## License
 
