@@ -4,7 +4,7 @@ FNORD-PROXY Dashboard
 Honeypot analytics dashboard with fail2ban + SSH attack pattern analysis.
 Themed after "23 - Nichts ist wie es scheint" / Anonymous / 1984.
 
-Part of fnord-proxy: https://github.com/YOUR_USERNAME/fnord-proxy-honeypot-ai
+Part of fnord-proxy: https://github.com/AckermannMedia/fnord-proxy-honeypot-ai
 """
 
 import os
