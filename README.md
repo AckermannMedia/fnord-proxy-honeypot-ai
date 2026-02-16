@@ -14,6 +14,10 @@ A drop-in **nginx honeypot reverse proxy** that sits in front of your web servic
 
 Themed after the movie **"23 - Nichts ist wie es scheint"** (Karl Koch / Chaos Computer Club), **Anonymous**, and George Orwell's **1984** — styled in **RAL 3000 Feuerrot** with CRT scanlines, glitch effects, and retro terminal aesthetics.
 
+![Dashboard](screenshots/dashboard-full.png)
+
+![Setup Interface](screenshots/setup.png)
+
 ---
 
 ## Why This Exists
@@ -275,9 +279,11 @@ dashboard:8888          ← reads honeypot.log ← shared volume
 
 Access at `/setup` — a web-based configuration wizard for fnord-proxy.
 
+![Setup — Themes, Config, Install Wizard](screenshots/setup.png)
+
 ### Features
 
-- **Theme selection** — 4 color schemes with live preview
+- **Theme selection** — 5 color schemes with live preview
 - **Service configuration** — domain, backend URL, dashboard bind address/port
 - **Honeypot path editor** — toggle which honeypot categories are active
 - **Status panel** — shows which components are running (nginx, fail2ban, dashboard)
